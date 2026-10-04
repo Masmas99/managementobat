@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -10,6 +11,7 @@ import {
   ChevronDown,
   CircleHelp,
   Clock3,
+  Download,
   FileBarChart,
   LayoutDashboard,
   LogOut,
@@ -17,6 +19,7 @@ import {
   Menu,
   Package,
   PanelLeftClose,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -24,6 +27,7 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   Truck,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -115,6 +119,16 @@ function initials(name) {
     .join("");
 }
 
+function profileAvatar(value, name, className = "avatar") {
+  return value ? (
+    <div className={className}>
+      <img src={value} alt={`Foto profil ${name || "pengguna"}`} />
+    </div>
+  ) : (
+    <div className={className}>{initials(name)}</div>
+  );
+}
+
 function MetricCard({ label, value, detail, tone, icon: Icon }) {
   return (
     <article className={`metric-card ${tone}`}>
@@ -131,8 +145,47 @@ function MetricCard({ label, value, detail, tone, icon: Icon }) {
 }
 
 function StatusBadge({ status }) {
-  const statusClass = status.toLowerCase().replaceAll(" ", "-");
-  return <span className={`status-badge ${statusClass}`}>{status}</span>;
+  const value = String(status || "UNKNOWN").toUpperCase();
+  const labels = {
+    "OUT OF STOCK": "Habis",
+    "LOW STOCK": "Stok menipis",
+    NORMAL: "Normal",
+    ACTIVE: "Aktif",
+    INACTIVE: "Nonaktif",
+    COMPLETED: "Selesai",
+    RELEASED: "Dirilis",
+    QUARANTINED: "Karantina",
+    RECALLED: "Ditarik",
+    EXPIRED: "Expired",
+  };
+  const statusClass = value.toLowerCase().replaceAll(" ", "-");
+  return <span className={`status-badge ${statusClass}`}>{labels[value] || status}</span>;
+}
+
+function ConfirmDialog({ open, title, message, onCancel, onConfirm, busy = false }) {
+  if (!open) return null;
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <section className="transaction-modal confirm-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-heading">
+          <div>
+            <p className="eyebrow">Konfirmasi tindakan</p>
+            <h2>{title}</h2>
+          </div>
+          <button className="icon-button" onClick={onCancel} aria-label="Tutup" disabled={busy}>
+            <X size={17} />
+          </button>
+        </div>
+        <p className="confirm-copy">{message}</p>
+        <div className="confirm-actions">
+          <button className="secondary-button" onClick={onCancel} disabled={busy}>Batal</button>
+          <button className="danger-button" onClick={onConfirm} disabled={busy}>
+            <Trash2 size={15} /> {busy ? "Menghapus..." : "Ya, hapus"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function HelpPage() {
@@ -199,6 +252,8 @@ function MasterResourcePage({ type, title, copy, role }) {
   const [editing, setEditing] = useState(null);
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const { data, refresh } = useCachedFetch(`/api/master/${type}`);
   const items = data || [];
 
@@ -235,14 +290,20 @@ function MasterResourcePage({ type, title, copy, role }) {
     setTimeout(() => setFormOpen(false), 600);
   }
   async function remove(id) {
-    if (!window.confirm("Hapus data master ini?")) return;
+    setDeleteTarget(items.find((item) => item.id === id) || { id, name: title.toLowerCase() });
+  }
+  async function confirmRemove() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     const response = await fetch(
-      `/api/master/${type}?id=${encodeURIComponent(id)}`,
+      `/api/master/${type}?id=${encodeURIComponent(deleteTarget.id)}`,
       { method: "DELETE" },
     );
     const payload = await response.json();
-    if (!response.ok) window.alert(payload.error || "Data gagal dihapus.");
-    await refresh().catch(() => {});
+    if (!response.ok) setMessage(payload.error || "Data gagal dihapus.");
+    else await refresh().catch(() => {});
+    setDeleting(false);
+    if (response.ok) setDeleteTarget(null);
   }
 
   return (
@@ -298,8 +359,8 @@ function MasterResourcePage({ type, title, copy, role }) {
                   <td>
                     {manageMaster && (
                       <div className="row-actions">
-                        <button onClick={() => openForm(item)}>Edit</button>
-                        <button onClick={() => remove(item.id)}>Hapus</button>
+                        <button className="edit-action" onClick={() => openForm(item)} title="Edit data" aria-label="Edit data"><Pencil size={14} /></button>
+                        <button className="delete-action" onClick={() => remove(item.id)} title="Hapus data" aria-label="Hapus data"><Trash2 size={14} /></button>
                       </div>
                     )}
                   </td>
@@ -356,6 +417,14 @@ function MasterResourcePage({ type, title, copy, role }) {
           </section>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={`Hapus ${title.toLowerCase()}?`}
+        message={`Data ${deleteTarget?.name || "ini"} akan dihapus dari master data. Tindakan ini tidak dapat dibatalkan.`}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+        onConfirm={confirmRemove}
+        busy={deleting}
+      />
     </div>
   );
 }
@@ -374,6 +443,8 @@ function UserResourcePage({ role }) {
     password: "",
   });
   const [message, setMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   function openForm(user = null) {
     setEditing(user);
     setForm(
@@ -414,13 +485,19 @@ function UserResourcePage({ role }) {
     setTimeout(() => setFormOpen(false), 600);
   }
   async function remove(id) {
-    if (!window.confirm("Hapus pengguna ini?")) return;
-    const response = await fetch(`/api/users?id=${encodeURIComponent(id)}`, {
+    setDeleteTarget(users.find((user) => user.id === id) || { id, name: "pengguna ini" });
+  }
+  async function confirmRemove() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const response = await fetch(`/api/users?id=${encodeURIComponent(deleteTarget.id)}`, {
       method: "DELETE",
     });
     const payload = await response.json();
-    if (!response.ok) window.alert(payload.error);
-    await refresh().catch(() => {});
+    if (!response.ok) setMessage(payload.error || "Pengguna gagal dihapus.");
+    else await refresh().catch(() => {});
+    setDeleting(false);
+    if (response.ok) setDeleteTarget(null);
   }
   const manageUsers = can(role, "manageUsers");
   return (
@@ -466,8 +543,8 @@ function UserResourcePage({ role }) {
                   <td>
                     {manageUsers && (
                       <div className="row-actions">
-                        <button onClick={() => openForm(user)}>Edit</button>
-                        <button onClick={() => remove(user.id)}>Hapus</button>
+                        <button className="edit-action" onClick={() => openForm(user)} title="Edit pengguna" aria-label="Edit pengguna"><Pencil size={14} /></button>
+                        <button className="delete-action" onClick={() => remove(user.id)} title="Hapus pengguna" aria-label="Hapus pengguna"><Trash2 size={14} /></button>
                       </div>
                     )}
                   </td>
@@ -580,21 +657,44 @@ function UserResourcePage({ role }) {
           </section>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Hapus pengguna?"
+        message={`${deleteTarget?.name || "Pengguna ini"} akan dihapus dari sistem. Tindakan ini tidak dapat dibatalkan.`}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+        onConfirm={confirmRemove}
+        busy={deleting}
+      />
     </div>
   );
 }
 
 function SettingsPage() {
-  const cachedProfile = getCached('/api/profile');
   const { data: profileData } = useCachedFetch('/api/profile');
-  const [profile, setProfile] = useState(cachedProfile || { name: '', avatarUrl: '', email: '', role: '' });
-  const [initialized, setInitialized] = useState(Boolean(cachedProfile));
+  const [profile, setProfile] = useState({ name: '', avatarUrl: '', email: '', role: '' });
+  const [initialized, setInitialized] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
+  useEffect(() => {
+    const cachedProfile = getCached('/api/profile');
+    if (cachedProfile) {
+      setProfile(cachedProfile);
+      setInitialized(true);
+    }
+  }, []);
   useEffect(() => { if (profileData && !initialized) { setProfile(profileData); setInitialized(true); } }, [profileData, initialized]);
-  async function save(event) { event.preventDefault(); setMessage('Menyimpan...'); const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...profile, currentPassword, newPassword }) }); const payload = await response.json(); setMessage(response.ok ? payload.message : payload.error); if (response.ok) { setProfile(payload.data); setCached('/api/profile', payload.data); setCurrentPassword(''); setNewPassword(''); } }
-  return <div className="settings-page"><div className="page-intro"><div><p className="eyebrow">System</p><h1>Pengaturan</h1><p className="intro-copy">Perbarui profil dan keamanan akun admin.</p></div></div><form className="settings-form" onSubmit={save}><article className="panel settings-card"><p className="eyebrow">Profil</p><div className="profile-preview"><div className="avatar large">{profile.name?.slice(0, 2).toUpperCase() || 'MS'}</div><div><strong>{profile.name || 'Pengguna'}</strong><span>{profile.role || '-'}</span></div></div><label>Nama<input value={profile.name || ''} onChange={(event) => setProfile({ ...profile, name: event.target.value })} /></label><label>Foto profil URL<input value={profile.avatarUrl || ''} onChange={(event) => setProfile({ ...profile, avatarUrl: event.target.value })} placeholder="https://.../foto.jpg" /></label></article><article className="panel settings-card"><p className="eyebrow">Keamanan</p><label>Password saat ini<input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label>Password baru<input type="password" minLength="8" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>            <p className="muted-copy">Password minimal 8 karakter. Perubahan password membatalkan sesi di perangkat lain.</p></article><div className="settings-actions">{message && <span className="transaction-message">{message}</span>}<button className="primary-button" type="submit">Simpan pengaturan</button></div></form></div>;
+  function choosePhoto(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { setMessage('Pilih file gambar yang valid.'); return; }
+    if (file.size > 2 * 1024 * 1024) { setMessage('Ukuran foto maksimal 2 MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setProfile((current) => ({ ...current, avatarUrl: String(reader.result) }));
+    reader.readAsDataURL(file);
+  }
+  async function save(event) { event.preventDefault(); setMessage('Menyimpan...'); const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...profile, currentPassword, newPassword }) }); const payload = await response.json(); setMessage(response.ok ? payload.message : payload.error); if (response.ok) { setProfile(payload.data); setCached('/api/profile', payload.data); window.dispatchEvent(new CustomEvent('profile-updated', { detail: payload.data })); setCurrentPassword(''); setNewPassword(''); } }
+  return <div className="settings-page"><div className="page-intro"><div><p className="eyebrow">System</p><h1>Pengaturan</h1><p className="intro-copy">Perbarui profil dan keamanan akun admin.</p></div></div><form className="settings-form" onSubmit={save}><article className="panel settings-card"><p className="eyebrow">Profil</p><div className="profile-preview">{profileAvatar(profile.avatarUrl, profile.name, 'avatar large')}<div><strong>{profile.name || 'Pengguna'}</strong><span>{profile.role || '-'}</span></div></div><label>Nama<input value={profile.name || ''} onChange={(event) => setProfile({ ...profile, name: event.target.value })} /></label><label>Foto profil<input type="file" accept="image/*" onChange={choosePhoto} /></label><span className="muted-copy">Format gambar maksimal 2 MB.</span></article><article className="panel settings-card"><p className="eyebrow">Keamanan</p><label>Password saat ini<input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label>Password baru<input type="password" minLength="8" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label><p className="muted-copy">Password minimal 8 karakter. Perubahan password membatalkan sesi di perangkat lain.</p></article><div className="settings-actions">{message && <span className="transaction-message">{message}</span>}<button className="primary-button" type="submit">Simpan pengaturan</button></div></form></div>;
 }
 
 function ResourcePage({
@@ -608,9 +708,11 @@ function ResourcePage({
   onAddTransaction,
   onAddAdjustment,
   onAddItem,
+  onAddBatch,
   onEditItem,
   onDeleteItem,
   onDetailItem,
+  profile,
 }) {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -729,7 +831,7 @@ function ResourcePage({
       : page === "Stok Masuk" || page === "Stok Keluar"
         ? transactionRows
         : page === "Pengguna"
-          ? [{ id: "USR-001", name: "Andi Saputra", value: "Admin Farmasi" }]
+          ? [{ id: "USR-001", name: profile?.name || "Pengguna", value: profile?.role || "-" }]
           : page === "Pengaturan"
             ? [
                 {
@@ -838,7 +940,8 @@ function ResourcePage({
       eyebrow: "Stock health",
       title: "Kondisi stok",
       copy: "Identifikasi stok habis, menipis, normal, dan berlebih.",
-      action: "Lihat kondisi",
+      action: null,
+      export: true,
       columns: [
         "Obat",
         "Stok saat ini",
@@ -852,7 +955,7 @@ function ResourcePage({
       eyebrow: "Replenishment",
       title: "Stok menipis",
       copy: "Daftar obat yang berada di bawah batas minimum.",
-      action: "Stok masuk",
+      action: null,
       columns: [
         "Obat",
         "Stok saat ini",
@@ -866,7 +969,8 @@ function ResourcePage({
       eyebrow: "Expiry control",
       title: "Akan expired",
       copy: "Pantau batch yang mendekati tanggal expired dan prioritaskan FEFO.",
-      action: "Buka laporan",
+      action: null,
+      export: true,
       columns: [
         "Obat / batch",
         "Expired",
@@ -880,7 +984,8 @@ function ResourcePage({
       eyebrow: "Expiry control",
       title: "Sudah expired",
       copy: "Obat yang sudah melewati tanggal expired dan tidak boleh dikeluarkan.",
-      action: "Buka laporan",
+      action: null,
+      export: true,
       columns: [
         "Obat / batch",
         "Expired",
@@ -908,7 +1013,8 @@ function ResourcePage({
       eyebrow: "Reporting",
       title: "Laporan stok",
       copy: "Ringkasan inventory, nilai persediaan, batch, dan expired terdekat.",
-      action: "Export laporan",
+      action: null,
+      export: true,
       columns: [
         "Obat",
         "Kategori",
@@ -957,7 +1063,8 @@ function ResourcePage({
       eyebrow: "Audit trail",
       title: "Riwayat aktivitas",
       copy: "Lacak perubahan stok dan aktivitas penting pengguna.",
-      action: "Export aktivitas",
+      action: null,
+      export: true,
       columns: ["Aktivitas", "Referensi", "Jumlah", "Waktu", "Status"],
     },
     Pengguna: {
@@ -1093,8 +1200,8 @@ function ResourcePage({
       return (
         <>
           <td>
-            <strong>Andi Saputra</strong>
-            <span>andi@medistock.local</span>
+            <strong>{profile?.name || "Petugas farmasi"}</strong>
+            <span>{profile?.email || "-"}</span>
           </td>
           <td>Admin Farmasi</td>
           <td>Administrator</td>
@@ -1197,8 +1304,12 @@ function ResourcePage({
           <td>
             {can(role, "manageInventory") && (
               <div className="row-actions">
-                <button onClick={() => onEditItem(item)}>Edit</button>
-                <button onClick={() => onDeleteItem(item.id)}>Hapus</button>
+                <button className="edit-action" onClick={() => onEditItem(item)} title="Edit obat" aria-label={`Edit ${item.name}`}>
+                  <Pencil size={14} />
+                </button>
+                <button className="delete-action" onClick={() => onDeleteItem(item.id)} title="Hapus obat" aria-label={`Hapus ${item.name}`}>
+                  <Trash2 size={14} />
+                </button>
               </div>
             )}
           </td>
@@ -1273,7 +1384,47 @@ function ResourcePage({
         : page === "Stok Masuk" || page === "Stok Keluar"
           ? "recordTransaction"
           : null;
-  const showAction = !actionPermission || can(role, actionPermission);
+  const showAction = Boolean(config.action) && (!actionPermission || can(role, actionPermission));
+
+  function exportData() {
+    if (page === "Riwayat Aktivitas") {
+      return rows.map((item) => ({
+        Aktivitas: item.name,
+        Referensi: item.category,
+        Jumlah: item.quantity || 0,
+        Waktu: new Date(item.location).toLocaleString("id-ID"),
+        Status: item.status,
+      }));
+    }
+    return rows.map((item) => ({
+      Obat: item.name,
+      Batch: item.batch,
+      Kategori: item.category,
+      Supplier: item.supplier,
+      Lokasi: item.location,
+      Stok: item.stock,
+      Minimum: item.minimum,
+      "Expired terdekat": formattedDate(item.nearestExpiry),
+      Status: item.status,
+      "Nilai persediaan": item.unitPrice ? item.stock * item.unitPrice : undefined,
+    }));
+  }
+
+  function exportExcel() {
+    const worksheet = XLSX.utils.json_to_sheet(exportData());
+    worksheet["!cols"] = Object.keys(exportData()[0] || {}).map((key) => ({ wch: Math.max(key.length + 2, 16) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, page.slice(0, 31));
+    XLSX.writeFile(workbook, `${page.toLowerCase().replaceAll(" ", "-")}.xlsx`);
+  }
+
+  function exportPdf() {
+    const originalTitle = document.title;
+    document.title = `${config.title} - MediStock`;
+    window.print();
+    window.setTimeout(() => { document.title = originalTitle; }, 1000);
+  }
+
   return (
     <div className="resource-page">
       <div className="page-intro">
@@ -1282,12 +1433,24 @@ function ResourcePage({
           <h1>{config.title}</h1>
           <p className="intro-copy">{config.copy}</p>
         </div>
+        {config.export && (
+          <div className="page-actions">
+            <button className="secondary-button" onClick={exportExcel}>
+              <Download size={15} /> Excel
+            </button>
+            <button className="primary-button" onClick={exportPdf}>
+              <Download size={15} /> PDF
+            </button>
+          </div>
+        )}
         {showAction && (
           <button
             className="primary-button"
             onClick={
               page === "Data Obat"
                 ? onAddItem
+                : page === "Batch Obat"
+                  ? onAddBatch
                 : page === "Penyesuaian Stok"
                   ? onAddAdjustment
                   : onAddTransaction
@@ -1385,10 +1548,11 @@ function ResourcePage({
 }
 
 export default function Dashboard() {
-  const [inventory, setInventory] = useState(() => getCached("/api/inventory") || []);
-  const [transactions, setTransactions] = useState(() => getCached("/api/transactions") || []);
-  const [adjustments, setAdjustments] = useState(() => getCached("/api/adjustments") || []);
+  const [inventory, setInventory] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [adjustments, setAdjustments] = useState([]);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [activePage, setActivePage] = useState("Dashboard");
   const [search, setSearch] = useState("");
@@ -1409,10 +1573,17 @@ export default function Dashboard() {
   const [adjustmentMessage, setAdjustmentMessage] = useState("");
   const [itemOpen, setItemOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [itemFormMode, setItemFormMode] = useState("medicine");
   const [itemForm, setItemForm] = useState({
     id: "",
     name: "",
     generic: "",
+    strength: "",
+    dosageForm: "",
+    route: "",
+    gtin: "",
+    registrationNo: "",
+    manufacturer: "",
     category: "Analgesik",
     batch: "",
     supplier: "",
@@ -1422,9 +1593,12 @@ export default function Dashboard() {
     nearestExpiry: "2027-01-01",
   });
   const [itemMessage, setItemMessage] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [detailItem, setDetailItem] = useState(null);
   const role = session?.role;
+  const batchMode = itemFormMode === "batch" && !editingItem;
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -1434,11 +1608,18 @@ export default function Dashboard() {
       })
       .then((payload) => {
         setSession(payload.data);
+        setProfile(payload.data);
         setAuthChecked(true);
       })
       .catch(() => {
         window.location.href = "/login";
       });
+  }, []);
+
+  useEffect(() => {
+    const updateProfile = (event) => setProfile(event.detail);
+    window.addEventListener("profile-updated", updateProfile);
+    return () => window.removeEventListener("profile-updated", updateProfile);
   }, []);
 
   const allowedNavigation = useMemo(
@@ -1507,6 +1688,12 @@ export default function Dashboard() {
     await Promise.all([loadInventory(), loadTransactions(), loadAdjustments()]);
     setRefreshing(false);
   }
+
+  useEffect(() => {
+    setInventory(getCached("/api/inventory") || []);
+    setTransactions(getCached("/api/transactions") || []);
+    setAdjustments(getCached("/api/adjustments") || []);
+  }, []);
 
   useEffect(() => {
     refreshAll();
@@ -1586,6 +1773,10 @@ export default function Dashboard() {
           .includes(search.toLowerCase()),
       ),
     [inventory, search],
+  );
+  const batchOptions = useMemo(
+    () => [...new Set(inventory.map((item) => item.batch).filter(Boolean))].sort(),
+    [inventory],
   );
   const totalStock = inventory.reduce((sum, item) => sum + item.stock, 0);
   const inventoryValue = inventory.reduce(
@@ -1703,8 +1894,9 @@ export default function Dashboard() {
     setTransactionOpen(true);
   }
 
-  function openItemForm(item = null) {
+  function openItemForm(item = null, mode = "medicine") {
     setEditingItem(item);
+    setItemFormMode(mode);
     setItemForm(
       item
         ? { ...item }
@@ -1717,6 +1909,12 @@ export default function Dashboard() {
             ).padStart(3, "0")}`,
             name: "",
             generic: "",
+            strength: "",
+            dosageForm: "",
+            route: "",
+            gtin: "",
+            registrationNo: "",
+            manufacturer: "",
             category: "Analgesik",
             batch: "",
             supplier: "",
@@ -1730,6 +1928,10 @@ export default function Dashboard() {
     setItemOpen(true);
   }
 
+  function openBatchForm() {
+    openItemForm(null, "batch");
+  }
+
   async function submitItem(event) {
     event.preventDefault();
     setItemMessage("Menyimpan data...");
@@ -1737,7 +1939,11 @@ export default function Dashboard() {
       method: editingItem ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
-        editingItem ? itemForm : { mode: "create", ...itemForm },
+        editingItem
+          ? itemForm
+          : itemFormMode === "batch"
+            ? { mode: "batch", productId: itemForm.parentId, ...itemForm }
+            : { mode: "create", ...itemForm },
       ),
     });
     const payload = await response.json();
@@ -1751,14 +1957,20 @@ export default function Dashboard() {
   }
 
   async function deleteItem(id) {
-    if (!window.confirm("Hapus obat ini dari inventory?")) return;
+    setDeleteTarget(inventory.find((item) => item.id === id) || { id, name: "data ini" });
+  }
+  async function confirmDeleteItem() {
+    if (!deleteTarget) return;
+    setDeleting(true);
     const response = await fetch(
-      `/api/inventory?id=${encodeURIComponent(id)}`,
+      `/api/inventory?id=${encodeURIComponent(deleteTarget.id)}`,
       { method: "DELETE" },
     );
     const payload = await response.json();
-    if (!response.ok) window.alert(payload.error || "Obat gagal dihapus.");
-    loadInventory();
+    if (!response.ok) setItemMessage(payload.error || "Data gagal dihapus.");
+    else await loadInventory();
+    setDeleting(false);
+    if (response.ok) setDeleteTarget(null);
   }
 
   async function submitTransaction(event) {
@@ -1827,7 +2039,7 @@ export default function Dashboard() {
         <div>
           <div className="brand-row">
             <div className="brand-mark">
-              <Plus size={22} strokeWidth={3} />
+              <img src="/image.png" alt="MediStock" />
             </div>
             <div>
               <strong>MediStock</strong>
@@ -1874,10 +2086,10 @@ export default function Dashboard() {
             <span>Pusat Bantuan</span>
           </button>
           <div className="profile">
-            <div className="avatar">{initials(session?.name)}</div>
+            {profileAvatar(profile?.avatarUrl, profile?.name)}
             <div>
-              <strong>{session?.name || "Memuat..."}</strong>
-              <span>{session?.role || "-"}</span>
+              <strong>{profile?.name || "Memuat..."}</strong>
+              <span>{profile?.role || "-"}</span>
             </div>
           </div>
         </div>
@@ -1941,16 +2153,16 @@ export default function Dashboard() {
                   setNotificationsOpen(false);
                 }}
               >
-                <div className="avatar small">{initials(session?.name)}</div>
-                <span>{session?.name || ""}</span>
+                {profileAvatar(profile?.avatarUrl, profile?.name, "avatar small")}
+                <span>{profile?.name || ""}</span>
                 <ChevronDown size={15} />
               </button>
               {profileOpen && (
                 <div className="profile-menu">
                   <p className="eyebrow">Masuk sebagai</p>
-                  <strong>{session?.name || "Memuat..."}</strong>
-                  <span className="profile-role">{session?.role || "-"}</span>
-                  <em>{session?.email || ""}</em>
+                  <strong>{profile?.name || "Memuat..."}</strong>
+                  <span className="profile-role">{profile?.role || "-"}</span>
+                  <em>{profile?.email || ""}</em>
                   <button
                     type="button"
                     className="profile-menu-logout"
@@ -1985,10 +2197,9 @@ export default function Dashboard() {
                     year: "numeric",
                   })}
                 </p>
-                <h1>Ringkasan persediaan</h1>
+                <h1>Selamat datang, {profile?.name || "Pengguna"}</h1>
                 <p className="intro-copy">
-                  Pantau kesehatan stok dan tindakan yang perlu dilakukan hari
-                  ini.
+                  Pantau kesehatan stok dan tindakan yang perlu dilakukan hari ini.
                 </p>
               </div>
               {can(role, "recordTransaction") && (
@@ -2282,9 +2493,11 @@ export default function Dashboard() {
               onAddTransaction={handleResourceAction}
               onAddAdjustment={() => setAdjustmentOpen(true)}
               onAddItem={() => openItemForm()}
+              onAddBatch={openBatchForm}
               onEditItem={openItemForm}
               onDeleteItem={deleteItem}
               onDetailItem={setDetailItem}
+              profile={profile}
             />
           </div>
         )}
@@ -2445,7 +2658,7 @@ export default function Dashboard() {
             <div className="modal-heading">
               <div>
                 <p className="eyebrow">Master inventory</p>
-                <h2>{editingItem ? "Edit obat" : "Tambah obat"}</h2>
+                <h2>{editingItem ? "Edit obat" : batchMode ? "Tambah batch" : "Tambah obat"}</h2>
               </div>
               <button
                 className="icon-button"
@@ -2457,6 +2670,40 @@ export default function Dashboard() {
             </div>
             <form onSubmit={submitItem}>
               <div className="form-grid">
+                {batchMode && (
+                  <label>
+                    Obat induk
+                    <select
+                      required
+                      value={itemForm.parentId || ""}
+                      onChange={(event) => {
+                        const parent = inventory.find((item) => item.id === event.target.value);
+                        setItemForm((current) => ({
+                          ...current,
+                          parentId: event.target.value,
+                          name: parent?.name || "",
+                          generic: parent?.generic || "",
+                          strength: parent?.strength || "",
+                          dosageForm: parent?.dosageForm || "",
+                          route: parent?.route || "",
+                          gtin: parent?.gtin || "",
+                          registrationNo: parent?.registrationNo || "",
+                          manufacturer: parent?.manufacturer || "",
+                          category: parent?.category || "Analgesik",
+                          supplier: parent?.supplier || "",
+                          location: parent?.location || "",
+                          minimum: parent?.minimum || 0,
+                          unitPrice: parent?.unitPrice || 0,
+                        }));
+                      }}
+                    >
+                      <option value="">Pilih obat induk</option>
+                      {inventory.map((item) => (
+                        <option key={item.id} value={item.id}>{item.name} · {item.id}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label>
                   Kode obat
                   <input
@@ -2472,6 +2719,7 @@ export default function Dashboard() {
                   Nama obat
                   <input
                     required
+                    readOnly={batchMode}
                     value={itemForm.name}
                     onChange={(event) =>
                       setItemForm({ ...itemForm, name: event.target.value })
@@ -2482,6 +2730,7 @@ export default function Dashboard() {
                   Nama generik
                   <input
                     required
+                    readOnly={batchMode}
                     value={itemForm.generic}
                     onChange={(event) =>
                       setItemForm({ ...itemForm, generic: event.target.value })
@@ -2489,9 +2738,37 @@ export default function Dashboard() {
                   />
                 </label>
                 <label>
+                  Kekuatan obat
+                  <input
+                    value={itemForm.strength}
+                    readOnly={batchMode}
+                    onChange={(event) => setItemForm({ ...itemForm, strength: event.target.value })}
+                    placeholder="Contoh: 500 mg"
+                  />
+                </label>
+                <label>
+                  Bentuk sediaan
+                  <input
+                    value={itemForm.dosageForm}
+                    readOnly={batchMode}
+                    onChange={(event) => setItemForm({ ...itemForm, dosageForm: event.target.value })}
+                    placeholder="Contoh: Tablet"
+                  />
+                </label>
+                <label>
+                  Rute penggunaan
+                  <input
+                    value={itemForm.route}
+                    readOnly={batchMode}
+                    onChange={(event) => setItemForm({ ...itemForm, route: event.target.value })}
+                    placeholder="Contoh: Oral"
+                  />
+                </label>
+                <label>
                   Kategori
                   <input
                     required
+                    readOnly={batchMode}
                     value={itemForm.category}
                     onChange={(event) =>
                       setItemForm({ ...itemForm, category: event.target.value })
@@ -2499,14 +2776,73 @@ export default function Dashboard() {
                   />
                 </label>
                 <label>
-                  Batch
+                  Produsen
                   <input
-                    required
-                    value={itemForm.batch}
-                    onChange={(event) =>
-                      setItemForm({ ...itemForm, batch: event.target.value })
-                    }
+                    value={itemForm.manufacturer}
+                    readOnly={batchMode}
+                    onChange={(event) => setItemForm({ ...itemForm, manufacturer: event.target.value })}
+                    placeholder="Nama produsen"
                   />
+                </label>
+                <label>
+                  GTIN / barcode
+                  <input
+                    value={itemForm.gtin}
+                    readOnly={batchMode}
+                    onChange={(event) => setItemForm({ ...itemForm, gtin: event.target.value })}
+                    placeholder="Opsional"
+                  />
+                </label>
+                <label>
+                  Nomor registrasi
+                  <input
+                    value={itemForm.registrationNo}
+                    readOnly={batchMode}
+                    onChange={(event) => setItemForm({ ...itemForm, registrationNo: event.target.value })}
+                    placeholder="Opsional"
+                  />
+                </label>
+                <label>
+                  Batch
+                  {batchMode ? (
+                    <input
+                      required
+                      value={itemForm.batch}
+                      onChange={(event) =>
+                        setItemForm({ ...itemForm, batch: event.target.value })
+                      }
+                      placeholder="Masukkan nomor batch baru"
+                    />
+                  ) : (
+                    <>
+                      <select
+                        required
+                        value={batchOptions.includes(itemForm.batch) ? itemForm.batch : "__NEW_BATCH__"}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setItemForm({
+                            ...itemForm,
+                            batch: value === "__NEW_BATCH__" ? "" : value,
+                          });
+                        }}
+                      >
+                        <option value="__NEW_BATCH__">Buat batch baru</option>
+                        {batchOptions.map((batch) => (
+                          <option key={batch} value={batch}>{batch}</option>
+                        ))}
+                      </select>
+                      {!batchOptions.includes(itemForm.batch) && (
+                        <input
+                          required
+                          value={itemForm.batch}
+                          onChange={(event) =>
+                            setItemForm({ ...itemForm, batch: event.target.value })
+                          }
+                          placeholder="Masukkan nomor batch baru"
+                        />
+                      )}
+                    </>
+                  )}
                 </label>
                 <label>
                   Supplier
@@ -2574,7 +2910,7 @@ export default function Dashboard() {
                 <p className="transaction-message">{itemMessage}</p>
               )}
               <button className="primary-button modal-submit" type="submit">
-                Simpan obat
+                {batchMode ? "Simpan batch" : "Simpan obat"}
               </button>
             </form>
           </section>
@@ -2675,6 +3011,14 @@ export default function Dashboard() {
           </section>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Hapus data inventory?"
+        message={`${deleteTarget?.name || "Data ini"} dan stok batch terkait akan dihapus. Riwayat transaksi batch juga ikut terhapus.`}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+        onConfirm={confirmDeleteItem}
+        busy={deleting}
+      />
       {logoutConfirmOpen && (
         <div
           className="modal-backdrop"

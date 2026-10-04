@@ -7,33 +7,70 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model InventoryItem {
-  id            String              @id
-  name          String
-  generic       String
-  category      String
-  stock         Int                 @default(0)
-  minimum       Int                 @default(0)
-  nearestExpiry DateTime
-  batch         String
-  supplier      String
-  location      String
-  supplierId    String?
-  categoryId    String?
-  locationId    String?
-  unitPrice     Int
-  status        String
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  transactions  StockTransaction[]
-  adjustments   StockAdjustment[]
-  supplierRef   Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  categoryRef   MedicineCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  locationRef   StorageLocation?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+model MedicineProduct {
+  id             String           @id
+  name           String
+  genericName    String
+  strength       String?
+  dosageForm     String?
+  route          String?
+  category       String
+  categoryId     String?
+  manufacturer   String?
+  registrationNo String?
+  gtin           String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  categoryRef    MedicineCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  batches        MedicineBatch[]
 
+  @@index([name])
+  @@index([genericName])
+  @@index([categoryId])
+  @@map("medicine_products")
+}
+
+model MedicineBatch {
+  id             String          @id
+  productId      String
+  batchNumber    String
+  manufacturedAt DateTime?
+  expiryDate     DateTime
+  supplierId     String?
+  manufacturer   String?
+  status         BatchStatus     @default(RELEASED)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  product        MedicineProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  stocks         BatchStock[]
+
+  @@unique([productId, batchNumber])
+  @@index([batchNumber])
+  @@index([expiryDate])
   @@index([status])
-  @@index([nearestExpiry])
-  @@map("inventory_items")
+  @@map("medicine_batches")
+}
+
+model BatchStock {
+  id           String             @id
+  batchId      String
+  locationId   String?
+  quantity     Int                @default(0)
+  minimum      Int                @default(0)
+  unitPrice    Int                @default(0)
+  status       StockStatus        @default(OUT_OF_STOCK)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  batch        MedicineBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  location     StorageLocation?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  transactions StockTransaction[]
+  adjustments  StockAdjustment[]
+
+  @@unique([batchId, locationId])
+  @@index([status])
+  @@index([locationId])
+  @@map("batch_stocks")
 }
 
 model Supplier {
@@ -41,74 +78,91 @@ model Supplier {
   name      String          @unique
   status    String          @default("ACTIVE")
   createdAt DateTime        @default(now())
-  items     InventoryItem[]
+  batches   MedicineBatch[]
 
   @@map("suppliers")
 }
 
 model MedicineCategory {
-  id        String          @id
-  name      String          @unique
-  status    String          @default("ACTIVE")
-  createdAt DateTime        @default(now())
-  items     InventoryItem[]
+  id        String           @id
+  name      String           @unique
+  status    String           @default("ACTIVE")
+  createdAt DateTime         @default(now())
+  products  MedicineProduct[]
 
   @@map("medicine_categories")
 }
 
 model StorageLocation {
-  id        String          @id
-  name      String          @unique
-  status    String          @default("ACTIVE")
-  createdAt DateTime        @default(now())
-  items     InventoryItem[]
+  id        String       @id
+  name      String       @unique
+  status    String       @default("ACTIVE")
+  createdAt DateTime     @default(now())
+  stocks    BatchStock[]
 
   @@map("storage_locations")
 }
 
 model User {
-  id        String   @id
-  name      String
-  email     String   @unique
-  role      String
-  status    String   @default("ACTIVE")
+  id           String   @id
+  name         String
+  email        String   @unique
+  role         String
+  status       String   @default("ACTIVE")
   passwordHash String?
-  avatarUrl String?
-  lastLogin DateTime?
-  createdAt DateTime @default(now())
+  avatarUrl    String?
+  lastLogin    DateTime?
+  createdAt    DateTime @default(now())
 
   @@map("users")
 }
 
 model StockTransaction {
-  id          String        @id @default(cuid())
-  inventoryId String
-  type        TransactionType
-  quantity    Int
-  stockBefore Int
-  stockAfter  Int
-  createdAt   DateTime      @default(now())
-  inventory   InventoryItem @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  id           String     @id @default(cuid())
+  batchStockId String
+  type         TransactionType
+  quantity     Int
+  stockBefore  Int
+  stockAfter   Int
+  performedBy  String?
+  referenceNo  String?
+  createdAt    DateTime   @default(now())
+  batchStock   BatchStock @relation(fields: [batchStockId], references: [id], onDelete: Cascade)
 
-  @@index([inventoryId, createdAt])
+  @@index([batchStockId, createdAt])
+  @@index([createdAt])
   @@map("stock_transactions")
 }
 
 model StockAdjustment {
-  id          String        @id @default(cuid())
-  inventoryId String
-  stockBefore Int
+  id           String     @id @default(cuid())
+  batchStockId String
+  stockBefore  Int
   physicalStock Int
-  difference  Int
-  reason      String
-  createdAt   DateTime      @default(now())
-  inventory   InventoryItem @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  difference   Int
+  reason       String
+  performedBy  String?
+  createdAt    DateTime   @default(now())
+  batchStock   BatchStock @relation(fields: [batchStockId], references: [id], onDelete: Cascade)
 
-  @@index([inventoryId, createdAt])
+  @@index([batchStockId, createdAt])
   @@map("stock_adjustments")
 }
 
 enum TransactionType {
   IN
   OUT
+}
+
+enum BatchStatus {
+  RELEASED
+  QUARANTINED
+  RECALLED
+  EXPIRED
+}
+
+enum StockStatus {
+  NORMAL
+  LOW_STOCK
+  OUT_OF_STOCK
 }

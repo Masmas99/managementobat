@@ -46,7 +46,7 @@ export default function LoginPage() {
       <section className="login-brand">
         <div className="brand-row">
           <div className="brand-mark">
-            <Plus size={22} strokeWidth={3} />
+            <img src="/image.png" alt="MediStock" />
           </div>
           <div>
             <strong>MediStock</strong>

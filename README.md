@@ -44,12 +44,26 @@ Aplikasi manajemen stok obat berbasis Next.js dan PostgreSQL.
 
    `DATABASE_URL` wajib mengarah ke database PostgreSQL yang dapat diakses oleh aplikasi.
 
-5. Generate Prisma Client dan buat/update tabel database:
+5. Pilih setup database sesuai kondisi:
+
+   Untuk database PostgreSQL baru/kosong:
 
    ```bash
    npm run db:generate
    npm run db:push
    ```
+
+   Jika database sudah berisi data dari versi lama, jangan jalankan `db:push`.
+   Gunakan migrasi aman berikut. Data lama dipindahkan ke struktur produk,
+   batch, dan stok per lokasi; tabel legacy tetap disimpan sebagai backup.
+
+   ```bash
+   npm run db:migrate:legacy
+   npm run db:generate
+   ```
+
+   Jangan menjalankan `npm run db:seed` pada database lama karena seed menghapus
+   data operasional dan mengisi data contoh.
 
 6. Isi data awal (opsional):
 
@@ -85,8 +99,3 @@ npm run start
 | `npm run db:push` | Sinkronisasi schema ke database |
 | `npm run db:seed` | Memasukkan data awal |
 
-## Catatan keamanan
-
-- Jangan commit file `.env` ke GitHub.
-- Gunakan `AUTH_SECRET` yang panjang dan acak.
-- Jangan menggunakan kredensial database contoh pada environment production.
