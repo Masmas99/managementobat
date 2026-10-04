@@ -1,7 +1,13 @@
 import './globals.css';
 
+const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, '');
+const siteUrl = configuredSiteUrl && !configuredSiteUrl.includes('domain-website-anda.com')
+  ? configuredSiteUrl
+  : 'https://managementobat-5zh5.vercel.app';
+
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://managementobat-5zh5.vercel.app'),
+  metadataBase: new URL(siteUrl),
+  alternates: { canonical: siteUrl },
   title: 'MediStock | Manajemen Persediaan Obat',
   description: 'Dashboard inventory obat untuk klinik dan rumah sakit.',
   icons: {
