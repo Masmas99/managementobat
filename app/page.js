@@ -94,6 +94,11 @@ function niceStep(value) {
   return nice * base;
 }
 
+function dateOnly(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+}
+
 const currency = new Intl.NumberFormat("id-ID", {
   style: "currency",
   currency: "IDR",
@@ -375,7 +380,12 @@ function UserResourcePage({ role }) {
       user
         ? { ...user, password: "" }
         : {
-            id: `USR-${String(users.length + 1).padStart(3, "0")}`,
+            id: `USR-${String(
+              users.reduce((highest, item) => {
+                const number = Number(String(item.id).match(/(\d+)$/)?.[1] || 0);
+                return Math.max(highest, number);
+              }, 0) + 1,
+            ).padStart(3, "0")}`,
             name: "",
             email: "",
             role: "Viewer",
@@ -636,7 +646,8 @@ function ResourcePage({
     );
   if (page === "Pengguna") return <UserResourcePage role={role} />;
   if (page === "Pengaturan") return <SettingsPage />;
-  const today = "2026-09-29";
+  const today = dateOnly(Date.now());
+  const expiringLimit = dateOnly(Date.now() + 90 * DAY_MS);
   const inventoryRows = inventory.filter((item) => {
     const matchesSearch =
       `${item.name} ${item.id} ${item.batch} ${item.supplier} ${item.location}`
@@ -667,7 +678,7 @@ function ResourcePage({
         matchesSupplier &&
         matchesLocation &&
         item.status !== "EXPIRED" &&
-        item.nearestExpiry <= "2026-12-28"
+        item.nearestExpiry <= expiringLimit
       );
     if (page === "Sudah Expired")
       return (
@@ -1628,6 +1639,14 @@ export default function Dashboard() {
       if (entry.type === "IN") buckets[index].in += quantity;
       else buckets[index].out += quantity;
     });
+    adjustments.forEach((entry) => {
+      const at = new Date(entry.createdAt).getTime();
+      if (Number.isNaN(at) || at < start || at > end) return;
+      const index = Math.min(count - 1, Math.floor((at - start) / size));
+      const difference = Number(entry.difference) || 0;
+      if (difference > 0) buckets[index].in += difference;
+      if (difference < 0) buckets[index].out += Math.abs(difference);
+    });
     const totalIn = buckets.reduce((sum, bucket) => sum + bucket.in, 0);
     const totalOut = buckets.reduce((sum, bucket) => sum + bucket.out, 0);
     const peak = Math.max(...buckets.map((bucket) => Math.max(bucket.in, bucket.out)));
@@ -1643,7 +1662,7 @@ export default function Dashboard() {
       labelIndexes,
       empty: totalIn + totalOut === 0,
     };
-  }, [transactions, period]);
+  }, [transactions, adjustments, period]);
 
   const recentActivity = useMemo(() => {
     const entries = [
@@ -1690,7 +1709,12 @@ export default function Dashboard() {
       item
         ? { ...item }
         : {
-            id: `MED-${String(inventory.length + 1).padStart(3, "0")}`,
+            id: `MED-${String(
+              inventory.reduce((highest, item) => {
+                const number = Number(String(item.id).match(/(\d+)$/)?.[1] || 0);
+                return Math.max(highest, number);
+              }, 0) + 1,
+            ).padStart(3, "0")}`,
             name: "",
             generic: "",
             category: "Analgesik",

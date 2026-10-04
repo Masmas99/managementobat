@@ -29,6 +29,16 @@ await prisma.inventoryItem.createMany({
     locationId: locations.find((entry) => entry.name === item.location).id,
   })),
 });
+await prisma.stockTransaction.createMany({
+  data: inventory.map((item, index) => ({
+    inventoryId: item.id,
+    type: 'IN',
+    quantity: item.stock,
+    stockBefore: 0,
+    stockAfter: item.stock,
+    createdAt: new Date(Date.now() - index * 60 * 60 * 1000),
+  })),
+});
 const users = [
   { id: 'USR-001', name: 'Andi Saputra', email: 'andi@medistock.local', role: 'Admin Farmasi', password: 'change-me' },
   { id: 'USR-002', name: 'Sari Wulandari', email: 'sari@medistock.local', role: 'Super Admin', password: 'super123' },

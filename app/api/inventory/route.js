@@ -48,14 +48,18 @@ export async function POST(request) {
   if (guard.error) return guard.error;
   if (body.mode === 'create') {
     const { id, name, generic, category, batch, supplier, location, minimum, unitPrice, nearestExpiry } = body;
-    if (!id || !name || !generic || !category || !batch || !supplier || !location || !nearestExpiry) return Response.json({ error: 'Data obat belum lengkap.' }, { status: 400 });
+    const minimumValue = Number(minimum);
+    const unitPriceValue = Number(unitPrice);
+    if (!id || !name?.trim() || !generic?.trim() || !category?.trim() || !batch?.trim() || !supplier?.trim() || !location?.trim() || !nearestExpiry) return Response.json({ error: 'Data obat belum lengkap.' }, { status: 400 });
+    if (!Number.isInteger(minimumValue) || minimumValue < 0 || !Number.isInteger(unitPriceValue) || unitPriceValue < 0) return Response.json({ error: 'Minimum stok dan harga harus berupa angka positif.' }, { status: 400 });
     if (useDatabase) {
       const relations = await resolveMasterRelations({ supplier, category, location });
-      const created = await prisma.inventoryItem.create({ data: { id, name, generic, category, batch, supplier, location, ...relations, minimum: Number(minimum), unitPrice: Number(unitPrice), nearestExpiry: new Date(`${nearestExpiry}T00:00:00.000Z`), stock: 0, status: 'OUT OF STOCK' } });
+      const created = await prisma.inventoryItem.create({ data: { id, name: name.trim(), generic: generic.trim(), category: category.trim(), batch: batch.trim(), supplier: supplier.trim(), location: location.trim(), ...relations, minimum: minimumValue, unitPrice: unitPriceValue, nearestExpiry: new Date(`${nearestExpiry}T00:00:00.000Z`), stock: 0, status: 'OUT OF STOCK' } });
       return Response.json({ data: serializeItem(created), message: 'Obat berhasil ditambahkan.' }, { status: 201 });
     }
     const inventory = await readInventory();
-    inventory.push({ id, name, generic, category, batch, supplier, location, minimum: Number(minimum), unitPrice: Number(unitPrice), nearestExpiry, stock: 0, status: 'OUT OF STOCK' });
+    if (inventory.some((item) => item.id === id)) return Response.json({ error: 'ID obat sudah digunakan.' }, { status: 409 });
+    inventory.push({ id, name: name.trim(), generic: generic.trim(), category: category.trim(), batch: batch.trim(), supplier: supplier.trim(), location: location.trim(), minimum: minimumValue, unitPrice: unitPriceValue, nearestExpiry, stock: 0, status: 'OUT OF STOCK' });
     await writeInventory(inventory);
     return Response.json({ data: inventory.at(-1), message: 'Obat berhasil ditambahkan.' }, { status: 201 });
   }
@@ -113,18 +117,21 @@ export async function PUT(request) {
   const { id, ...changes } = await request.json();
   const allowed = ['name', 'generic', 'category', 'minimum', 'nearestExpiry', 'batch', 'supplier', 'location', 'unitPrice'];
   const data = Object.fromEntries(Object.entries(changes).filter(([key]) => allowed.includes(key)));
-  if (!id || !data.name || !data.category || !data.batch || !data.nearestExpiry) return Response.json({ error: 'Data obat belum lengkap.' }, { status: 400 });
+  const minimumValue = Number(data.minimum);
+  const unitPriceValue = Number(data.unitPrice);
+  if (!id || !data.name?.trim() || !data.generic?.trim() || !data.category?.trim() || !data.batch?.trim() || !data.supplier?.trim() || !data.location?.trim() || !data.nearestExpiry) return Response.json({ error: 'Data obat belum lengkap.' }, { status: 400 });
+  if (!Number.isInteger(minimumValue) || minimumValue < 0 || !Number.isInteger(unitPriceValue) || unitPriceValue < 0) return Response.json({ error: 'Minimum stok dan harga harus berupa angka positif.' }, { status: 400 });
 
   if (useDatabase) {
     const relations = await resolveMasterRelations({ supplier: data.supplier, category: data.category, location: data.location });
-    const updated = await prisma.inventoryItem.update({ where: { id }, data: { ...data, ...relations, minimum: Number(data.minimum), unitPrice: Number(data.unitPrice), nearestExpiry: new Date(`${data.nearestExpiry}T00:00:00.000Z`) } });
+    const updated = await prisma.inventoryItem.update({ where: { id }, data: { ...data, name: data.name.trim(), generic: data.generic.trim(), category: data.category.trim(), batch: data.batch.trim(), supplier: data.supplier.trim(), location: data.location.trim(), ...relations, minimum: minimumValue, unitPrice: unitPriceValue, nearestExpiry: new Date(`${data.nearestExpiry}T00:00:00.000Z`) } });
     return Response.json({ data: serializeItem(updated), message: 'Data obat berhasil diperbarui.' });
   }
 
   const inventory = await readInventory();
   const item = inventory.find((entry) => entry.id === id);
   if (!item) return Response.json({ error: 'Obat tidak ditemukan.' }, { status: 404 });
-  Object.assign(item, data, { minimum: Number(data.minimum), unitPrice: Number(data.unitPrice) });
+  Object.assign(item, data, { name: data.name.trim(), generic: data.generic.trim(), category: data.category.trim(), batch: data.batch.trim(), supplier: data.supplier.trim(), location: data.location.trim(), minimum: minimumValue, unitPrice: unitPriceValue });
   await writeInventory(inventory);
   return Response.json({ data: item, message: 'Data obat berhasil diperbarui.' });
 }

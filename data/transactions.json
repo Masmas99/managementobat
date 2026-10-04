@@ -1,1 +1,52 @@
-[]
+[
+	{
+		"id": "TX-001",
+		"type": "IN",
+		"quantity": 500,
+		"stockBefore": 0,
+		"stockAfter": 500,
+		"createdAt": "2026-10-04T08:00:00.000Z",
+		"name": "Paracetamol 500 mg",
+		"batch": "PCM-001"
+	},
+	{
+		"id": "TX-002",
+		"type": "IN",
+		"quantity": 240,
+		"stockBefore": 0,
+		"stockAfter": 240,
+		"createdAt": "2026-10-04T06:00:00.000Z",
+		"name": "Cetirizine 10 mg",
+		"batch": "CTR-011"
+	},
+	{
+		"id": "TX-003",
+		"type": "OUT",
+		"quantity": 15,
+		"stockBefore": 30,
+		"stockAfter": 15,
+		"createdAt": "2026-10-03T10:00:00.000Z",
+		"name": "Amoxicillin 500 mg",
+		"batch": "AMX-008"
+	},
+	{
+		"id": "TX-004",
+		"type": "IN",
+		"quantity": 85,
+		"stockBefore": 0,
+		"stockAfter": 85,
+		"createdAt": "2026-10-02T09:00:00.000Z",
+		"name": "Vitamin C 500 mg",
+		"batch": "VTC-021"
+	},
+	{
+		"id": "TX-005",
+		"type": "OUT",
+		"quantity": 20,
+		"stockBefore": 40,
+		"stockAfter": 20,
+		"createdAt": "2026-10-01T11:00:00.000Z",
+		"name": "Cefixime 200 mg",
+		"batch": "CFX-003"
+	}
+]
