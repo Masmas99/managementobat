@@ -1,0 +1,72 @@
+[
+  {
+    "id": "MED-001",
+    "name": "Paracetamol 500 mg",
+    "generic": "Paracetamol",
+    "category": "Analgesik",
+    "stock": 500,
+    "minimum": 100,
+    "nearestExpiry": "2026-10-15",
+    "batch": "PCM-001",
+    "supplier": "PT Sehat Sentosa",
+    "location": "Gudang Utama",
+    "unitPrice": 500,
+    "status": "NORMAL"
+  },
+  {
+    "id": "MED-002",
+    "name": "Amoxicillin 500 mg",
+    "generic": "Amoxicillin",
+    "category": "Antibiotik",
+    "stock": 15,
+    "minimum": 50,
+    "nearestExpiry": "2027-02-18",
+    "batch": "AMX-008",
+    "supplier": "PT Kimia Farma",
+    "location": "Apotek",
+    "unitPrice": 1200,
+    "status": "LOW STOCK"
+  },
+  {
+    "id": "MED-003",
+    "name": "Cefixime 200 mg",
+    "generic": "Cefixime",
+    "category": "Antibiotik",
+    "stock": 20,
+    "minimum": 30,
+    "nearestExpiry": "2026-09-20",
+    "batch": "CFX-003",
+    "supplier": "PT Sehat Sentosa",
+    "location": "Gudang A",
+    "unitPrice": 3500,
+    "status": "EXPIRED"
+  },
+  {
+    "id": "MED-004",
+    "name": "Cetirizine 10 mg",
+    "generic": "Cetirizine",
+    "category": "Antihistamin",
+    "stock": 240,
+    "minimum": 80,
+    "nearestExpiry": "2026-11-06",
+    "batch": "CTR-011",
+    "supplier": "CV Medika Jaya",
+    "location": "Gudang Utama",
+    "unitPrice": 850,
+    "status": "NORMAL"
+  },
+  {
+    "id": "MED-005",
+    "name": "Vitamin C 500 mg",
+    "generic": "Ascorbic Acid",
+    "category": "Vitamin",
+    "stock": 85,
+    "minimum": 100,
+    "nearestExpiry": "2026-10-04",
+    "batch": "VTC-021",
+    "supplier": "CV Medika Jaya",
+    "location": "Ruang Klinik",
+    "unitPrice": 700,
+    "status": "LOW STOCK"
+  }
+]

@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model InventoryItem {
+  id            String              @id
+  name          String
+  generic       String
+  category      String
+  stock         Int                 @default(0)
+  minimum       Int                 @default(0)
+  nearestExpiry DateTime
+  batch         String
+  supplier      String
+  location      String
+  supplierId    String?
+  categoryId    String?
+  locationId    String?
+  unitPrice     Int
+  status        String
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  transactions  StockTransaction[]
+  adjustments   StockAdjustment[]
+  supplierRef   Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  categoryRef   MedicineCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  locationRef   StorageLocation?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([nearestExpiry])
+  @@map("inventory_items")
+}
+
+model Supplier {
+  id        String          @id
+  name      String          @unique
+  status    String          @default("ACTIVE")
+  createdAt DateTime        @default(now())
+  items     InventoryItem[]
+
+  @@map("suppliers")
+}
+
+model MedicineCategory {
+  id        String          @id
+  name      String          @unique
+  status    String          @default("ACTIVE")
+  createdAt DateTime        @default(now())
+  items     InventoryItem[]
+
+  @@map("medicine_categories")
+}
+
+model StorageLocation {
+  id        String          @id
+  name      String          @unique
+  status    String          @default("ACTIVE")
+  createdAt DateTime        @default(now())
+  items     InventoryItem[]
+
+  @@map("storage_locations")
+}
+
+model User {
+  id        String   @id
+  name      String
+  email     String   @unique
+  role      String
+  status    String   @default("ACTIVE")
+  passwordHash String?
+  avatarUrl String?
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("users")
+}
+
+model StockTransaction {
+  id          String        @id @default(cuid())
+  inventoryId String
+  type        TransactionType
+  quantity    Int
+  stockBefore Int
+  stockAfter  Int
+  createdAt   DateTime      @default(now())
+  inventory   InventoryItem @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryId, createdAt])
+  @@map("stock_transactions")
+}
+
+model StockAdjustment {
+  id          String        @id @default(cuid())
+  inventoryId String
+  stockBefore Int
+  physicalStock Int
+  difference  Int
+  reason      String
+  createdAt   DateTime      @default(now())
+  inventory   InventoryItem @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryId, createdAt])
+  @@map("stock_adjustments")
+}
+
+enum TransactionType {
+  IN
+  OUT
+}
