@@ -1,14 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ArrowRight, LogIn, Plus, ShieldCheck } from "lucide-react";
-
-const demoAccounts = [
-  { role: "Super Admin", email: "sari@medistock.local", password: "super123" },
-  { role: "Admin Farmasi", email: "andi@medistock.local", password: "change-me" },
-  { role: "Petugas Gudang", email: "gudang@medistock.local", password: "gudang123" },
-  { role: "Viewer", email: "viewer@medistock.local", password: "viewer123" },
-];
+import { AlertTriangle, LogIn, Plus, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -33,12 +26,6 @@ export default function LoginPage() {
     }
     const next = new URLSearchParams(window.location.search).get("next");
     window.location.href = next && next.startsWith("/") ? next : "/";
-  }
-
-  function fillDemo(account) {
-    setEmail(account.email);
-    setPassword(account.password);
-    setMessage("");
   }
 
   return (
@@ -73,6 +60,10 @@ export default function LoginPage() {
               <ShieldCheck size={16} /> Akun nonaktif otomatis ditolak
             </li>
           </ul>
+        </div>
+        <div className="login-brand-art" aria-hidden="true">
+          <img src="/og.jpg" alt="" />
+          <span>MediStock · kontrol persediaan yang terukur</span>
         </div>
       </section>
 
@@ -115,18 +106,6 @@ export default function LoginPage() {
             <LogIn size={17} /> {loading ? "Memproses..." : "Masuk"}
           </button>
 
-          <div className="login-demo">
-            <p className="eyebrow">Akun demo</p>
-            {demoAccounts.map((account) => (
-              <button type="button" key={account.role} onClick={() => fillDemo(account)}>
-                <span>
-                  <strong>{account.role}</strong>
-                  <em>{account.email}</em>
-                </span>
-                <ArrowRight size={14} />
-              </button>
-            ))}
-          </div>
         </form>
       </section>
     </main>
