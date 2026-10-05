@@ -108,6 +108,7 @@ button { cursor: pointer; }
 .login-card .intro-copy { margin: -6px 0 6px; }
 .login-card label { display: grid; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
 .login-card input { width: 100%; padding: 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; outline: 0; font-size: 13px; }
+.password-field { position: relative; display: block; }.password-field input { padding-right: 42px; }.password-toggle { position: absolute; top: 50%; right: 9px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; color: var(--muted); border: 0; border-radius: 6px; background: transparent; transform: translateY(-50%); }.password-toggle:hover { color: var(--teal); background: var(--teal-soft); }
 .login-card input:focus { border-color: #9fcfc5; box-shadow: 0 0 0 3px #e8f5f1; }
 .login-message { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 11px; }
 .login-message.error { color: var(--coral); }
@@ -121,7 +122,7 @@ button { cursor: pointer; }
 .login-demo strong, .login-demo em { display: block; font-style: normal; }
 .login-demo strong { color: var(--ink); font-size: 11px; }
 .login-demo em { margin-top: 2px; font: 10px 'Space Mono', monospace; color: #96a29e; }
-@media (max-width: 900px) { .login-shell { grid-template-columns: 1fr; }.login-brand { padding: 30px 24px; gap: 26px; }.login-role-list { display: none; }.login-panel { padding: 24px 16px 40px; } }
+@media (max-width: 900px) { .login-shell { grid-template-columns: 1fr; }.login-panel { order: -1; }.login-brand { padding: 30px 24px; gap: 26px; }.login-role-list { display: none; }.login-panel { padding: 24px 16px 40px; } }
 
 .status-badge { padding: 5px 8px; border-radius: 5px; }
 .status-badge.normal, .status-badge.released, .status-badge.active, .status-badge.completed { color: var(--teal); background: #e2f4f0; }
