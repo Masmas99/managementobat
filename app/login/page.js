@@ -61,10 +61,6 @@ export default function LoginPage() {
             </li>
           </ul>
         </div>
-        <div className="login-brand-art" aria-hidden="true">
-          <img src="/og.jpg" alt="" />
-          <span>MediStock · kontrol persediaan yang terukur</span>
-        </div>
       </section>
 
       <section className="login-panel">
