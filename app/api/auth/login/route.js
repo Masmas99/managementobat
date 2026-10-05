@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { isDbConnectionError, prisma, withDbRetry } from '@/lib/prisma';
+import { isDbConnectionError, isDbSchemaError, prisma, withDbRetry } from '@/lib/prisma';
 import { SESSION_TTL_SECONDS, sessionCookie, signSession } from '@/lib/auth';
 
 export async function POST(request) {
@@ -15,6 +15,9 @@ export async function POST(request) {
     console.error('[auth/login] gagal mengambil pengguna:', error);
     if (isDbConnectionError(error)) {
       return Response.json({ error: 'Tidak dapat terhubung ke database. Coba lagi dalam beberapa detik.' }, { status: 503 });
+    }
+    if (isDbSchemaError(error)) {
+      return Response.json({ error: 'Database belum siap. Jalankan migrasi database sebelum login.' }, { status: 503 });
     }
     return Response.json({ error: 'Terjadi kesalahan saat login. Coba lagi nanti.' }, { status: 500 });
   }
